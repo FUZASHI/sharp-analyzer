@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8" />
   <title>Class Graph</title>
@@ -28,208 +29,323 @@
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
     }
 
-    input, button {
+
+    input[type="text"],
+    input[type="file"],
+    select,
+    button {
       padding: 8px;
       margin: 5px;
       background: #333;
       border: 1px solid #3d3d3d;
       color: white;
+      border-radius: 4px;
+      font-size: 14px;
     }
+
+    select {
+      appearance: none;
+      background-color: #333;
+      color: white;
+    }
+
+  .progress-container {
+    width: calc(100% - 10px); /* Account for parent padding */
+    margin: 10px 5px 0;
+    display: none; /* Start hidden */
+  }
+
+  .progress-bar-background {
+    width: 100%;
+    height: 20px;
+    background: #333;
+    border-radius: 4px;
+    border: 1px solid #3d3d3d;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    width: 0%;
+    height: 100%;
+    background: #0e639c;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .progress-text {
+    color: #c8c8c8;
+    margin-top: 4px;
+    font-size: 12px;
+    text-align: center;
+  }
   </style>
 </head>
 <body>
   <div class="controls">
-    <input type="text" id="projectPath" placeholder="Enter project path">
-    <button onclick="analyzeProject()">Visualize</button>
+    <input type="text" id="directoryPath" placeholder="Enter directory path">
+    <button onclick="listProjects()">List Projects</button>
+    <select id="projectSelect" style="display: none;">
+      <option value="">Select a project</option>
+    </select>
+    <button onclick="analyzeSelectedProject()" style="display: none;">Visualize</button>
+    
+    <!-- Progress bar inside controls container -->
+    <div id="progressContainer" class="progress-container">
+      <div class="progress-bar-background">
+        <div id="progressBar" class="progress-bar-fill"></div>
+      </div>
+      <div id="progressText" class="progress-text"></div>
+    </div>
   </div>
   <div id="mynetwork"></div>
-
-  <script>
-    const interfaceNodes = new Set();
-
-    async function analyzeProject() {
-      const path = document.getElementById('projectPath').value;
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: path
-      });
-
-      if (!response.ok) {
-        alert('Error: ' + await response.text());
-        return;
-      }
-
-      const data = await response.json();
-      visualizeData(data);
-    }
-
-    function visualizeData(data) {
-      const nodeMap = {};
-      const nodes = [];
-      const edges = [];
-
-      const colors = {
-        class: '#4EC9B0',
-        interface: '#C586C0',
-        baseType: '#569CD6',
-        reference: '#DCDCAA'
-      };
-
-      data.forEach(cls => {
-        addNode(cls.name, colors.class);
-
-        if (cls.baseType) {
-          addNode(cls.baseType, colors.baseType);
-          addEdge(cls.name, cls.baseType, 'inherits');
-        }
-
-        cls.interfaces.forEach(iface => {
-          addNode(iface, colors.interface);
-          interfaceNodes.add(iface);
-          addEdge(cls.name, iface, 'implements');
-        });
-
-        cls.referencedTypes.forEach(ref => {
-          addNode(ref, colors.reference);
-          addEdge(cls.name, ref, 'uses');
-        });
-      });
-
-      function addNode(id, color) {
-        if (nodeMap[id]) return;
-        const node = {
-          id,
-          label: id,
-          shape: 'box',
-          shadow: true,
-          color: {
-            background: color,
-            border: '#3f3f3f',
-            hover: { background: color, border: '#3f3f3f' }
-          },
-          font: { color: '#ffffff' },
-          borderWidth: 2
-        };
-        nodeMap[id] = node;
-        nodes.push(node);
-      }
-
-      function addEdge(from, to, label) {
-        edges.push({
-          from,
-          to,
-          label,
-          arrows: 'to',
-          color: {
-            color: '#888',
-            hover: '#aaa',
-            opacity: 0.7
-          },
-          font: { color: '#fff', size: 12 },
-          smooth: { type: 'cubicBezier', forceDirection: 'horizontal' }
-        });
-      }
-
-      const container = document.getElementById('mynetwork');
-      const dataSet = {
-        nodes: new vis.DataSet(nodes),
-        edges: new vis.DataSet(edges)
-      };
-
-      const options = {
-        layout: {
-          hierarchical: false
-        },
-        physics: {
-          enabled: true,
-          stabilization: {
-            iterations: 100
-          },
-          barnesHut: {
-            gravitationalConstant: -2500,
-            springLength: 200,
-            springConstant: 0.05,
-            damping: 0.3
-          }
-        },
-        interaction: {
-          dragNodes: true,
-          dragView: true,
-          hover: true
-        }
-      };
-
-      const network = new vis.Network(container, dataSet, options);
-
-      // Disable physics after layout settles
-      network.once('stabilizationIterationsDone', () => {
-        network.setOptions({ physics: false });
-      });
-
-      // Enable group dragging behavior
-      enableGroupDrag(network);
-    }
-
-    function enableGroupDrag(network) {
-      let draggingBase = null;
-      let initialPositions = {};
-      let baseStartPos = null;
-
-      function getConnectedNodesRecursive(nodeId, visited = new Set()) {
-        if (visited.has(nodeId)) return [];
-        visited.add(nodeId);
-
-        const children = network.getConnectedNodes(nodeId, 'from');
-        let all = [...children];
-
-        for (const child of children) {
-          all = all.concat(getConnectedNodesRecursive(child, visited));
-        }
-        return all;
-      }
-
-      network.on('dragStart', function (params) {
-        if (params.nodes.length === 1) {
-          draggingBase = params.nodes[0];
-
-        if (interfaceNodes.has(draggingBase)) {
-            // It's an interface — skip group dragging entirely
-            draggingBase = null;
-            return;
-        }
-
-          baseStartPos = network.getPositions([draggingBase])[draggingBase];
-          const connected = getConnectedNodesRecursive(draggingBase);
-          const all = [draggingBase, ...connected];
-
-          const positions = network.getPositions(all);
-          initialPositions = {};
-          for (let id of all) {
-            initialPositions[id] = positions[id];
-          }
-        }
-      });
-
-      network.on('dragging', function () {
-        if (!draggingBase) return;
-        const currentPos = network.getPositions([draggingBase])[draggingBase];
-        const dx = currentPos.x - baseStartPos.x;
-        const dy = currentPos.y - baseStartPos.y;
-
-        for (let [id, pos] of Object.entries(initialPositions)) {
-          if (id !== draggingBase) {
-            network.moveNode(id, pos.x + dx, pos.y + dy);
-          }
-        }
-      });
-
-      network.on('dragEnd', function () {
-        draggingBase = null;
-        initialPositions = {};
-        baseStartPos = null;
-      });
-    }
-  </script>
 </body>
 </html>
+<script>
+  const interfaceNodes = new Set();
+
+  async function listProjects() {
+    const path = document.getElementById('directoryPath').value;
+    const response = await fetch('/api/list-projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: path
+    });
+
+    if (!response.ok) {
+      alert('Error: ' + await response.text());
+      return;
+    }
+
+    const projects = await response.json();
+    const select = document.getElementById('projectSelect');
+    select.innerHTML = '<option value="">Select a project</option>';
+    projects.forEach(projectPath => {
+      const option = document.createElement('option');
+      option.value = projectPath;
+      option.textContent = projectPath.split(/[\\/]/).pop(); // Show filename only
+      select.appendChild(option);
+    });
+    select.style.display = 'inline';
+    document.querySelector('button[onclick="analyzeSelectedProject()"]').style.display = 'inline';
+  }
+
+  let eventSource;
+
+  function startProgressUpdates() {
+    document.getElementById('progressContainer').style.display = 'block';
+    eventSource = new EventSource('/api/progress');
+
+    eventSource.onmessage = function (event) {
+      const { progress, message } = JSON.parse(event.data);
+      const bar = document.getElementById('progressBar');
+      const text = document.getElementById('progressText');
+      bar.style.width = `${progress}%`;
+      text.textContent = message;
+
+      if (progress >= 100) {
+        setTimeout(() => {
+          eventSource.close();
+          document.getElementById('progressContainer').style.display = 'none';
+          bar.style.width = '0%';
+          text.textContent = '';
+        }, 1000);
+      }
+    };
+
+    eventSource.onerror = function () {
+      eventSource.close();
+    };
+  }
+
+  async function analyzeSelectedProject() {
+    const select = document.getElementById('projectSelect');
+    const selectedProject = select.value;
+    if (!selectedProject) {
+      alert('Please select a project');
+      return;
+    }
+
+    startProgressUpdates(); // Start SSE connection
+
+    const response = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: selectedProject
+    });
+
+    if (!response.ok) {
+      alert('Error: ' + await response.text());
+      return;
+    }
+
+    const data = await response.json();
+    visualizeData(data);
+  }
+
+  function visualizeData(data) {
+    const nodeMap = {};
+    const nodes = [];
+    const edges = [];
+
+    const colors = {
+      class: '#4EC9B0',
+      interface: '#C586C0',
+      baseType: '#569CD6',
+      reference: '#DCDCAA'
+    };
+
+    data.forEach(cls => {
+      addNode(cls.name, colors.class);
+
+      if (cls.baseType) {
+        addNode(cls.baseType, colors.baseType);
+        addEdge(cls.name, cls.baseType, 'inherits');
+      }
+
+      cls.interfaces.forEach(iface => {
+        addNode(iface, colors.interface);
+        interfaceNodes.add(iface);
+        addEdge(cls.name, iface, 'implements');
+      });
+
+      cls.referencedTypes.forEach(ref => {
+        addNode(ref, colors.reference);
+        addEdge(cls.name, ref, 'uses');
+      });
+    });
+
+    function addNode(id, color) {
+      if (nodeMap[id]) return;
+      const node = {
+        id,
+        label: id,
+        shape: 'box',
+        shadow: true,
+        color: {
+          background: color,
+          border: '#3f3f3f',
+          hover: { background: color, border: '#3f3f3f' }
+        },
+        font: { color: '#ffffff' },
+        borderWidth: 2
+      };
+      nodeMap[id] = node;
+      nodes.push(node);
+    }
+
+    function addEdge(from, to, label) {
+      edges.push({
+        from,
+        to,
+        label,
+        arrows: 'to',
+        color: {
+          color: '#888',
+          hover: '#aaa',
+          opacity: 0.7
+        },
+        font: { color: '#fff', size: 12 },
+        smooth: { type: 'cubicBezier', forceDirection: 'horizontal' }
+      });
+    }
+
+    const container = document.getElementById('mynetwork');
+    const dataSet = {
+      nodes: new vis.DataSet(nodes),
+      edges: new vis.DataSet(edges)
+    };
+
+    const options = {
+      layout: {
+        hierarchical: false
+      },
+      physics: {
+        enabled: true,
+        stabilization: {
+          iterations: 100
+        },
+        barnesHut: {
+          gravitationalConstant: -2500,
+          springLength: 200,
+          springConstant: 0.05,
+          damping: 0.3
+        }
+      },
+      interaction: {
+        dragNodes: true,
+        dragView: true,
+        hover: true
+      }
+    };
+
+    const network = new vis.Network(container, dataSet, options);
+
+    // Disable physics after layout settles
+    network.once('stabilizationIterationsDone', () => {
+      network.setOptions({ physics: false });
+    });
+
+    // Enable group dragging behavior
+    enableGroupDrag(network);
+  }
+
+  function enableGroupDrag(network) {
+    let draggingBase = null;
+    let initialPositions = {};
+    let baseStartPos = null;
+
+    function getConnectedNodesRecursive(nodeId, visited = new Set()) {
+      if (visited.has(nodeId)) return [];
+      visited.add(nodeId);
+
+      const children = network.getConnectedNodes(nodeId, 'from');
+      let all = [...children];
+
+      for (const child of children) {
+        all = all.concat(getConnectedNodesRecursive(child, visited));
+      }
+      return all;
+    }
+
+    network.on('dragStart', function (params) {
+      if (params.nodes.length === 1) {
+        draggingBase = params.nodes[0];
+
+        if (interfaceNodes.has(draggingBase)) {
+          // It's an interface — skip group dragging entirely
+          draggingBase = null;
+          return;
+        }
+
+        baseStartPos = network.getPositions([draggingBase])[draggingBase];
+        const connected = getConnectedNodesRecursive(draggingBase);
+        const all = [draggingBase, ...connected];
+
+        const positions = network.getPositions(all);
+        initialPositions = {};
+        for (let id of all) {
+          initialPositions[id] = positions[id];
+        }
+      }
+    });
+
+    network.on('dragging', function () {
+      if (!draggingBase) return;
+      const currentPos = network.getPositions([draggingBase])[draggingBase];
+      const dx = currentPos.x - baseStartPos.x;
+      const dy = currentPos.y - baseStartPos.y;
+
+      for (let [id, pos] of Object.entries(initialPositions)) {
+        if (id !== draggingBase) {
+          network.moveNode(id, pos.x + dx, pos.y + dy);
+        }
+      }
+    });
+
+    network.on('dragEnd', function () {
+      draggingBase = null;
+      initialPositions = {};
+      baseStartPos = null;
+    });
+  }
+</script>

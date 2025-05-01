@@ -37,18 +37,23 @@ public class ProjectAnalyzer
         public bool IsAbstract { get; set; }
         public bool IsVirtual { get; set; }
     }
-    public async Task<List<ClassNode>> AnalyzeProject(string projectDirectory)
+    public async Task<List<ClassNode>> AnalyzeProject(string projectFilePath, ProgressReporter reporter)
     {
         var workspace = MSBuildWorkspace.Create();
-        var projectFiles = Directory.GetFiles(projectDirectory, "*.csproj");
+        if (!File.Exists(projectFilePath))
+            throw new FileNotFoundException("Project file not found");
 
-        if (projectFiles.Length == 0)
-            throw new FileNotFoundException("No .csproj file found");
-
-        var project = await workspace.OpenProjectAsync(projectFiles[0]);
+        await reporter.ReportAsync(10, "Opening project...");
+        var project = await workspace.OpenProjectAsync(projectFilePath);
+        
+        await reporter.ReportAsync(50, "Compiling project...");
         var compilation = await project.GetCompilationAsync();
 
         List<ClassNode> classGraph = new List<ClassNode>();
+
+        var totalDocuments = project.Documents.Count();
+        var processedDocuments = 0;
+        int progress = 50;
 
         foreach (var document in project.Documents)
         {
@@ -116,8 +121,12 @@ public class ProjectAnalyzer
 
                 classGraph.Add(classNode);
             }
+        
+            progress = 50 + (int)(50 * processedDocuments/totalDocuments);
+            await reporter.ReportAsync(progress, $"Analyzing document: {document.Name}");
         }
 
+        await reporter.ReportAsync(100, "Analysis complete.");
         return classGraph;
     }
 }
