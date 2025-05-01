@@ -21,3 +21,4 @@ appsettings.Development.json
 node_modules/
 wwwroot/lib/
 cmd.md
+.DS_Store
