@@ -1,0 +1,22 @@
+# .NET Core
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+*.db
+*.log
+
+# ASP.NET
+appsettings.Development.json
+
+# VS Code & Rider
+.idea/
+.vscode/
+*.swp
+
+# Others
+node_modules/
+wwwroot/lib/
