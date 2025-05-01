@@ -20,3 +20,4 @@ appsettings.Development.json
 # Others
 node_modules/
 wwwroot/lib/
+cmd.md
