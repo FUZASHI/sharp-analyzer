@@ -208,10 +208,10 @@
         addEdge(cls.name, iface, 'implements');
       });
 
-      cls.referencedTypes.forEach(ref => {
-        addNode(ref, colors.reference);
-        addEdge(cls.name, ref, 'uses');
-      });
+      //cls.referencedTypes.forEach(ref => {
+      //  addNode(ref, colors.reference);
+      //  addEdge(cls.name, ref, 'uses');
+      //});
     });
 
     function addNode(id, color) {

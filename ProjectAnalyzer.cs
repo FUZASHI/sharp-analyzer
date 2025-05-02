@@ -136,18 +136,22 @@ public class TypeCollector : CSharpSyntaxWalker
     private readonly SemanticModel _semanticModel;
     private readonly List<ITypeSymbol> _types = new List<ITypeSymbol>();
 
-    public TypeCollector(SemanticModel semanticModel)
+    public TypeCollector(SemanticModel semanticModel) : base(SyntaxWalkerDepth.Node)
     {
         _semanticModel = semanticModel;
     }
 
-    public void VisitTypeReference(TypeSyntax node)
+    public override void Visit(SyntaxNode node)
     {
-        var typeInfo = _semanticModel.GetTypeInfo(node);
-        if (typeInfo.Type != null)
+        if (node is TypeSyntax typeSyntax)
         {
-            _types.Add(typeInfo.Type);
+            var typeInfo = _semanticModel.GetTypeInfo(typeSyntax);
+            if (typeInfo.Type != null)
+            {
+                _types.Add(typeInfo.Type);
+            }
         }
+        base.Visit(node);
     }
 
     public List<ITypeSymbol> GetTypes()
