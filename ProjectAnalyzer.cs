@@ -10,7 +10,7 @@ public class ProjectAnalyzer
         public string Name { get; set; }
         public string BaseType { get; set; }
         public List<string> Interfaces { get; set; } = new List<string>();
-        public List<string> ReferencedTypes { get; set; } = new List<string>();
+        public HashSet<string> ReferencedTypes { get; set; } = new HashSet<string>();
         public List<MethodNode> Methods { get; set; } = new List<MethodNode>();
         public List<PropertyNode> Properties { get; set; } = new List<PropertyNode>();
     }
@@ -80,7 +80,9 @@ public class ProjectAnalyzer
                 // Collect referenced types
                 var typeCollector = new TypeCollector(semanticModel);
                 classDecl.Accept(typeCollector);
-                classNode.ReferencedTypes.AddRange(typeCollector.GetTypes().Select(t => t.ToDisplayString()));
+                classNode.ReferencedTypes.UnionWith(
+                    typeCollector.GetTypes().Select(t => t.ToDisplayString())
+                );
 
                 // Add methods
                 foreach (var member in classSymbol.GetMembers())
@@ -146,7 +148,7 @@ public class TypeCollector : CSharpSyntaxWalker
         if (node is TypeSyntax typeSyntax)
         {
             var typeInfo = _semanticModel.GetTypeInfo(typeSyntax);
-            if (typeInfo.Type != null)
+            if (typeInfo.Type != null && !typeInfo.Type.ContainingNamespace?.ToDisplayString().StartsWith("System") == true)
             {
                 _types.Add(typeInfo.Type);
             }

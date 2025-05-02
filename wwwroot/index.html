@@ -5,6 +5,7 @@
   <meta charset="utf-8" />
   <title>Class Graph</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
     body {
       margin: 0;
@@ -78,7 +79,66 @@
     font-size: 12px;
     text-align: center;
   }
-  </style>
+
+  .sidebar {
+    display: none;
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  width: 220px;
+  background: #252526;
+  padding: 15px;
+  border-radius: 5px;
+  z-index: 1000;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+  max-height: calc(100vh - 20px);
+}
+
+.sidebar-section {
+  margin-bottom: 15px;
+}
+
+.sidebar-header {
+  color: #c8c8c8;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 5px;
+  border-radius: 5px;
+  padding: 5px;
+}
+
+.sidebar-content {
+  list-style: none;
+  padding-left: 10px;
+  display: none;
+  color: #f1f1f1;
+}
+
+.sidebar-content li {
+  margin: 4px 0;
+  font-size: 13px;
+}
+.sidebar-header::before {
+  content: "\f054"; /* FontAwesome chevron-right */
+  font-family: "FontAwesome";
+  margin-right: 8px;
+  transition: transform 0.2s;
+}
+
+.sidebar-content-visible::before {
+  content: "\f078"; /* FontAwesome chevron-down */
+}
+
+.sidebar-header:hover {
+  background-color: #2a2d2e;
+}
+
+.sidebar-content-visible {
+  background-color: #2a2d2e;
+}
+
+</style>
 </head>
 <body>
   <div class="controls">
@@ -89,7 +149,6 @@
     </select>
     <button onclick="analyzeSelectedProject()" style="display: none;">Visualize</button>
     
-    <!-- Progress bar inside controls container -->
     <div id="progressContainer" class="progress-container">
       <div class="progress-bar-background">
         <div id="progressBar" class="progress-bar-fill"></div>
@@ -98,6 +157,22 @@
     </div>
   </div>
   <div id="mynetwork"></div>
+
+  <div class="sidebar">
+    <div class="sidebar-section" id="referencedTypesSection">
+      <div class="sidebar-header" onclick="toggleSidebarContent('referencedTypesContent')">
+        Referenced Types
+      </div>
+      <ul class="sidebar-content" id="referencedTypesContent"></ul>
+    </div>
+  
+    <div class="sidebar-section" id="methodsSection">
+      <div class="sidebar-header" onclick="toggleSidebarContent('methodsContent')">
+        Methods
+      </div>
+      <ul class="sidebar-content" id="methodsContent"></ul>
+    </div>
+  </div>
 </body>
 </html>
 <script>
@@ -208,6 +283,7 @@
         addEdge(cls.name, iface, 'implements');
       });
 
+      // All references and methods can be found in sidebar
       //cls.referencedTypes.forEach(ref => {
       //  addNode(ref, colors.reference);
       //  addEdge(cls.name, ref, 'uses');
@@ -287,7 +363,10 @@
 
     // Enable group dragging behavior
     enableGroupDrag(network);
-  }
+
+    // Sidebar related bindings
+    sidebarBindings(network, data);
+  };
 
   function enableGroupDrag(network) {
     let draggingBase = null;
@@ -347,5 +426,45 @@
       initialPositions = {};
       baseStartPos = null;
     });
+  }
+
+  function sidebarBindings(network, data){
+     network.on('selectNode', function (params) {
+      document.querySelector('.sidebar').style.display = 'block'; // Show sidebar
+      const selectedNodeId = params.nodes[0];
+      const referencedTypes = (data.find(d => d.name === selectedNodeId)?.referencedTypes || []);
+      const methods = (data.find(d => d.name === selectedNodeId)?.methods || []).map(m => m.name);
+
+      // Fill referenced types
+      const refList = document.getElementById('referencedTypesContent');
+      refList.innerHTML = '';
+      referencedTypes.forEach(type => {
+        const li = document.createElement('li');
+        li.textContent = type;
+        refList.appendChild(li);
+      });
+
+      // Fill methods
+      const methodList = document.getElementById('methodsContent');
+      methodList.innerHTML = '';
+      methods.forEach(method => {
+        const li = document.createElement('li');
+        li.textContent = method;
+        methodList.appendChild(li);
+      });
+    });
+
+    network.on('deselectNode', function () {
+      document.querySelector('.sidebar').style.display = 'none'; // Hide sidebar
+    });
+  }
+
+  function toggleSidebarContent(id) {
+    const content = document.getElementById(id);
+    const header = content.previousElementSibling;
+    const isVisible = content.style.display === 'block';
+    
+    content.style.display = isVisible ? 'none' : 'block';
+    header.classList.toggle('sidebar-content-visible', !isVisible);
   }
 </script>
